@@ -61,7 +61,10 @@ class CategoricalFeature(Feature):
             new_feature[self.data.isin(list_)] = i
         return new_feature
 
-    def convert2proba(self, target_class=1):
+    def convert2CondProba(self, target_class=1):
+        if not self._isSameSize:
+            print('ERROR: Feature and Target lengths must be the same.')
+            return
         feature2proba = self.data.replace(
                                 self.conditional_probas.to_dict()[target_class])
         return feature2proba
@@ -86,8 +89,8 @@ class CategoricalFeature(Feature):
         return table, minmax
 
 class OrdinalFeature(Feature):
-    def __init__(self, feature):
-        super().__init__(feature)
+    def __init__(self, feature, target=None):
+        super().__init__(feature, target=target)
         self.feature_type = 'ordinal'
         self.max_value = np.max(self.data)
         self.min_value = np.min(self.data)
@@ -185,7 +188,7 @@ class OrdinalFeature(Feature):
             nearest.append(list_[idx])
         return pd.Series(nearest)
 
-    def calculateDensityRatio(self, target, span, mode='percent',
+    def calculateCondProba(self, span='auto', mode='percent',
                    kernel='gau', bw='normal_reference', fft=True,
                    weights=None, gridsize=None, adjust=1, cut=3,
                    clip=(-np.inf, np.inf)):
@@ -199,13 +202,21 @@ class OrdinalFeature(Feature):
         of being in class1 in a binary classification task. To be updated to
         multiclass label.
         '''
-        if self.num_samples != len(target):
-            print('Error: Target size must be the same as the feature size.')
+        if not self._isSameSize:
+            print('ERROR: Feature and Target lengths must be the same.')
             return
 
-        class1 = OrdinalFeature(self.data[target == 1])
-        bulk_size = len(target)
-        class_size = np.sum(target)
+        if type(span) == str:
+            if span == 'auto':
+                span = np.linspace(self.min_value, self.max_value, 100)
+            else:
+                print('Error: span has to be entered or set to \'auto.\'')
+        else:
+            span = span
+
+        class1 = OrdinalFeature(self.data[self.target == 1])
+        bulk_size = len(self.target)
+        class_size = np.sum(self.target)
         class1_freq = class_size / bulk_size
 
         self.bulk_kde = self.statsmodelsKDE(bw=bw, graph=False)
@@ -214,25 +225,31 @@ class OrdinalFeature(Feature):
         bulk_dens = bulk_size*self.bulk_kde.evaluate(np.array(span))
         class_dens = class_size*self.target_kde.evaluate(np.array(span))
 
-        ratio = class_dens/bulk_dens
+        cond_proba = class_dens/bulk_dens
+        result = pd.DataFrame(cond_proba, index=span, columns=['cond_proba'])
+        result.index.name = 'feature_value'
+        return result
 
-        return ratio
-
-    def convert2DensityRatio(self, target, span, mode='percent',
+    def convert2CondProba(self, span='auto', mode='percent',
                    kernel='gau', bw='normal_reference', fft=True,
                    weights=None, gridsize=None, adjust=1, cut=3,
                    clip=(-np.inf, np.inf)):
-        if self.num_samples != len(target):
-            print('Error: Target size must be the same as the feature size.')
+        if not self._isSameSize:
+            print('ERROR: Feature and Target lengths must be the same.')
             return
 
-        ratio = self.calculateDensityRatio(target, span, mode=mode,
+        if span == 'auto':
+            span = np.linspace(self.min_value, self.max_value, 50)
+        else:
+            span = span
+
+        cond_proba = self.calculateCondProba(span=span, mode=mode,
                                kernel=kernel, bw=bw, fft=fft,
                                weights=weights, gridsize=gridsize,
                                adjust=adjust, cut=cut,
                                clip=clip)
-        conversion_dict = dict(zip(span, ratio))
-        converted = self.find_nearest_in_list(span).replace(conversion_dict)
+        converted = self.find_nearest_in_list(span)\
+                        .replace(cond_proba['cond_proba'])
         return converted
 
     def convert2gain(self, target, span, mode='percent',
