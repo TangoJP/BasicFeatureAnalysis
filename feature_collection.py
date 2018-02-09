@@ -64,7 +64,7 @@ class OrdinalFeatureCollection(FeatureCollection):
                     OrdinalFeature(df[feature_name], target=self.target) \
                 for feature_name in self.feature_names}
 
-    def convert2CondProba(self, target_class=1):
+    def convert2CondProba(self, target_class=1, bw_dict=None, span_dict=None):
         if not self._isSameSize:
             print('ERROR: Feature and Target lengths must be the same.')
             return
@@ -72,7 +72,9 @@ class OrdinalFeatureCollection(FeatureCollection):
         proba_space = pd.DataFrame()
         for i, feature_name in enumerate(self.feature_names):
             F = self.collection[feature_name]
+            bw = bw_dict[feature_name]
+            span = span_dict[feature_name]
             proba_space[feature_name] = \
-                                F.convert2CondProba()
+                                F.convert2CondProba(bw=bw, span=span)
 
         return proba_space

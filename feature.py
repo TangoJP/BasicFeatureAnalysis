@@ -1,3 +1,13 @@
+
+###############################################################################
+### Module for surveying a single feature ###
+#
+#
+#
+#
+#
+#
+###############################################################################
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
@@ -8,16 +18,30 @@ from sklearn.neighbors import KernelDensity
 
 # Classes for individual features and class target
 class ColumnData:
+    '''
+    Basic object for a feature in pd.Series format. This class is the
+    basis for different kinds of feature data and for the label/class data.
+
+    INPUT
+    =====
+    data : pd.Series
+        A colum vector containg the feature data
+    target : pd.series
+        A column vector containing the labels for each sample. This input is
+        required for creating contingency_table for categorical feature.
+
+    '''
     def __init__(self, data, target=None):
-        self.data = data
-        self.target = target
+        self.data = data                # feature data
+        self.target = target            # labels for the data
 
-        self.num_samples = len(self.data)
-        self.unique_values = sorted(self.data.unique())
-        self.num_unique_values = len(self.unique_values)
-        self._counts = self.data.value_counts()
-        self._frequencies = self._counts / self.num_samples
+        self.num_samples = len(self.data)                   # number of samples
+        self.unique_values = sorted(self.data.unique())     # unique feature values
+        self.num_unique_values = len(self.unique_values)    # num. of unique values
+        self._counts = self.data.value_counts()             # counts of each value
+        self._frequencies = self._counts / self.num_samples # freqs. of each value
 
+        # Assess if target is of the same size as the feature
         if self.target is None:
             self._isSameSize = False
         elif self.num_samples == self.target.shape[0]:
@@ -26,12 +50,52 @@ class ColumnData:
             self._isSameSize = False
 
 class Feature(ColumnData):
+    '''
+    A base class for a feature data. The only difference from the ColumnData
+    object is that the '_counts' and '_frequencies' attributes are replaced
+    with 'value_counts' and 'value_frequencies'.
+
+    INPUT:
+    ======
+    feature : pd.Series
+
+    target : pd.Series
+
+    '''
     def __init__(self, feature, target=None):
         super().__init__(feature, target=target)
         self.value_counts = self._counts
         self.value_frequencies = self._frequencies
 
+class ClassTarget(ColumnData):
+    '''
+    A base class for a class/label data. The only difference from the ColumnData
+    object is that the '_counts' and '_frequencies' attributes are replaced
+    with 'class_counts' and 'class_frequencies'.
+
+    INPUT:
+    ======
+    feature : pd.Series
+
+    target : pd.Series
+
+    '''
+    def __init__(self, target):
+        super().__init__(target)
+        self.class_counts = self._counts
+        self.class_frequencies = self._frequencies
+
 class CategoricalFeature(Feature):
+    '''
+    Class for categorical features.
+
+    INPUT:
+    ======
+    feature : pd.Series
+
+    target : pd.Series
+    
+    '''
     def __init__(self, feature, target=None):
         super().__init__(feature, target=target)
         # Categorical-specific attributes
@@ -238,8 +302,11 @@ class OrdinalFeature(Feature):
             print('ERROR: Feature and Target lengths must be the same.')
             return
 
-        if span == 'auto':
-            span = np.linspace(self.min_value, self.max_value, 50)
+        if type(span) == str:
+            if span == 'auto':
+                span = np.linspace(self.min_value, self.max_value, 100)
+            else:
+                print('Error: span has to be entered or set to \'auto.\'')
         else:
             span = span
 
@@ -282,9 +349,3 @@ class OrdinalFeature(Feature):
         converted = self.find_nearest_in_list(span).replace(conversion_dict)
 
         return converted
-
-class ClassTarget(ColumnData):
-    def __init__(self, target):
-        super().__init__(target)
-        self.class_counts = self._counts
-        self.class_frequencies = self._frequencies

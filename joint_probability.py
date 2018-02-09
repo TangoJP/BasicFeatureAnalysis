@@ -8,10 +8,13 @@ from feature import (ColumnData, Feature,
                      CategoricalFeature, OrdinalFeature, ClassTarget)
 from feature_collection import (FeatureCollection,
                                 CategoricalFeatureCollection,
-                                OrdinalFeatureCollection)                     
+                                OrdinalFeatureCollection)
 from itertools import combinations
 from ipyparallel import Client
 
+###
+### TO BE REFACTORED BEFORE USED
+###
 class JointProbability:
     def __init__(self):
         self.contingency = None
